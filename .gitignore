@@ -4,5 +4,11 @@ dist/
 .env
 .env.local
 .next/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
 blackbox/*.jsonl
 !blackbox/.gitkeep

@@ -1,0 +1,27 @@
+# Agent Arena backend — FastAPI
+#
+# Python owns orchestration (the council, the Black Box, reputation) and talks
+# to the DreamDEX venue through MCP. TypeScript is confined to the venue
+# adapter, where the SDK forces it.
+
+fastapi==0.120.1
+uvicorn[standard]==0.34.0
+pydantic==2.12.3
+python-dotenv==1.1.0
+
+# MCP client — how the backend reaches the venue. This is the architectural
+# seam, not a convenience: the backend never imports a DreamDEX SDK.
+#
+# The Python and TypeScript MCP SDKs version independently: the TS server here
+# is on 1.30.0, whose Python counterpart does not exist. 1.29.0 is the current
+# Python stable (2.0.0 is a prerelease). They speak the same wire protocol.
+mcp>=1.29.0,<2
+
+# The council
+anthropic>=0.75.0
+langgraph>=0.6.0
+
+# Tests
+pytest>=8.4.0
+pytest-asyncio>=1.2.0
+httpx>=0.28.0
