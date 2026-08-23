@@ -1,0 +1,18 @@
+{
+  "name": "agent-arena",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "typecheck": "tsc -b --pretty",
+    "check": "tsx packages/arena-market/src/doctor.ts",
+    "mcp": "tsx packages/arena-mcp/src/server.ts",
+    "council": "tsx packages/arena-agents/src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
