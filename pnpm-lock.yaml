@@ -72,6 +72,9 @@ importers:
       '@arena/market':
         specifier: workspace:*
         version: link:../arena-market
+      '@arena/reputation':
+        specifier: workspace:*
+        version: link:../arena-reputation
       zod:
         specifier: ^3.25.76
         version: 3.25.76

@@ -11,7 +11,8 @@
     "check": "tsx packages/arena-market/src/doctor.ts",
     "mcp": "tsx packages/arena-mcp/src/server.ts",
     "council": "tsx packages/arena-agents/src/cli.ts",
-    "leaderboard": "tsx packages/arena-reputation/src/cli.ts"
+    "leaderboard": "tsx packages/arena-reputation/src/cli.ts",
+    "trade": "tsx packages/arena-trade/src/cli.ts"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
