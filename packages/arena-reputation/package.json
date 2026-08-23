@@ -1,0 +1,15 @@
+{
+  "name": "@arena/reputation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./scoring.js": "./src/scoring.ts",
+    "./store.js": "./src/store.ts",
+    "./lineage.js": "./src/lineage.ts"
+  },
+  "scripts": { "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "dependencies": { "@arena/core": "workspace:*" },
+  "devDependencies": { "@types/node": "^22.0.0", "typescript": "^5.6.0" }
+}

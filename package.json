@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "agent-arena",
   "version": "0.1.0",
   "private": true,
@@ -10,7 +10,8 @@
     "typecheck": "tsc -b --pretty",
     "check": "tsx packages/arena-market/src/doctor.ts",
     "mcp": "tsx packages/arena-mcp/src/server.ts",
-    "council": "tsx packages/arena-agents/src/cli.ts"
+    "council": "tsx packages/arena-agents/src/cli.ts",
+    "leaderboard": "tsx packages/arena-reputation/src/cli.ts"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
