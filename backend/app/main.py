@@ -8,12 +8,18 @@ process boundary rather than a convention.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
+from . import sessions
+from .agents.config import anthropic_status
+from .agents.council import convene
 from .config import settings
 from .venue import VenueUnavailable, venue
 
@@ -64,13 +70,15 @@ async def health() -> dict:
     down" and "the API is up but the venue is not" is the first thing anyone
     debugging this needs, and a 500 collapses the two.
     """
+    anthropic = anthropic_status()
     return {
-        "status": "ok" if venue.connected else "degraded",
+        "status": "ok" if venue.connected and anthropic["ready"] else "degraded",
         "venue": "connected" if venue.connected else "unavailable",
         "mode": "fixtures" if settings.fixtures else "live",
         "network": settings.network,
         "model": settings.model,
         "mcpTools": venue.tools,
+        "anthropic": anthropic,
     }
 
 
@@ -121,6 +129,121 @@ async def get_implied(market_id: str) -> dict:
         return await venue.implied(market_id)
     except VenueUnavailable as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+class ConveneRequest(BaseModel):
+    budgetS: float = 300.0
+
+
+@app.post("/council/{market_id}")
+async def start_council(market_id: str, body: ConveneRequest = ConveneRequest()) -> dict:
+    """Start a council session in the background and return its id immediately.
+
+    The run continues even if no client ever opens the WebSocket — a council
+    that stops because the browser tab closed would make the trade proposal
+    that depends on it disappear along with the tab. Subscribe with
+    GET /ws/council/{sessionId}; late subscribers are replayed from seq 0.
+    """
+    status = anthropic_status()
+    if not status["ready"]:
+        raise HTTPException(status_code=503, detail=status["detail"])
+
+    try:
+        m = await venue.market(market_id)
+        e = await venue.evidence(market_id)
+    except VenueUnavailable as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    session_id = f"council-{int(time.time() * 1000)}"
+    session = sessions.create(session_id, market_id)
+
+    async def on_event(ev) -> None:
+        await sessions.broadcast_event(session, ev)
+
+    async def on_progress(p: dict) -> None:
+        await sessions.broadcast_progress(session, p)
+
+    async def run() -> None:
+        try:
+            outcome = await convene(
+                venue,
+                market_id=market_id,
+                market_text=m["text"],
+                evidence_text=e["text"],
+                signals=e["signals"],
+                market_implied=m.get("yesMid"),
+                session_id=session_id,
+                budget_s=body.budgetS,
+                # convene() calls these synchronously; bridge to the async
+                # broadcast without blocking a graph node on network I/O to
+                # every connected socket.
+                on_progress=lambda p: asyncio.create_task(on_progress(p)),
+                on_event=lambda ev: asyncio.create_task(on_event(ev)),
+                blackbox=session.blackbox,
+            )
+            session.outcome = {
+                "verdict": outcome["verdict"].model_dump() if outcome.get("verdict") else None,
+                "edge": outcome.get("edge"),
+                "skipped": outcome.get("skipped", []),
+            }
+            session.status = "done"
+            session.blackbox.save(settings.sessions_dir)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("council session %s failed", session_id)
+            session.status = "error"
+            session.error = str(exc)
+        await sessions.broadcast_progress(session, {"phase": "closed", "detail": session.status})
+
+    session.task = asyncio.create_task(run())
+    return {"sessionId": session_id, "marketId": market_id}
+
+
+@app.websocket("/ws/council/{session_id}")
+async def council_stream(websocket: WebSocket, session_id: str) -> None:
+    """Live feed of one council session.
+
+    Replays every event recorded so far on connect, THEN streams new ones —
+    so a client that attaches mid-run sees the full causal graph rather than
+    only what happens to occur after it opened the socket.
+    """
+    session = sessions.get(session_id)
+    if session is None:
+        await websocket.close(code=4404, reason="unknown session")
+        return
+
+    await websocket.accept()
+    for ev in session.blackbox.all():
+        await websocket.send_json({"type": "event", "event": ev.to_json()})
+    await websocket.send_json({"type": "status", "status": session.status})
+
+    session.listeners.append(websocket)
+    try:
+        while True:
+            # This endpoint is push-only; block on receive so a disconnect
+            # (which raises) is the only reason this loop ever exits.
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        if websocket in session.listeners:
+            session.listeners.remove(websocket)
+
+
+@app.get("/council/{session_id}")
+async def get_council(session_id: str) -> dict:
+    """Poll fallback for clients without WebSocket support, and the terminal
+    read for a session that already finished."""
+    session = sessions.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"No session {session_id}")
+    return {
+        "sessionId": session.session_id,
+        "marketId": session.market_id,
+        "status": session.status,
+        "error": session.error,
+        "outcome": session.outcome,
+        "events": [e.to_json() for e in session.blackbox.all()],
+    }
 
 
 @app.post("/markets/{market_id}/audit")
