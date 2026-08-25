@@ -70,7 +70,10 @@ export async function activeMarkets(
   opts: { asset?: string; max?: number } = {},
 ): Promise<UnifiedMarket[]> {
   const { config } = ctx;
-  const all = Object.values(await ctx.exchange.loadMarkets(true));
+  // `loadMarkets`'s declared return type is looser than what it actually
+  // resolves to, so `Object.values` alone leaves `m` as `unknown` here —
+  // annotate once at the point of first use rather than downstream.
+  const all = Object.values(await ctx.exchange.loadMarkets(true)) as UnifiedMarket[];
   let live = all.filter((m) => m.type === "binary" && m.active);
 
   const scope: VenueScope = config.venueId
@@ -218,6 +221,16 @@ export function quantize(ctx: EcContext, human: number): number {
  *
  * Returns the ids to hand to `getMarketOnchain`, plus enough to log usefully.
  */
+/** The subset of a `listBinaryMarkets` row this file actually reads. The SDK's
+ *  own declared return type is looser than what it resolves to at runtime. */
+interface BinaryMarketRow {
+  marketId: string;
+  venueId?: string | null;
+  asset?: string | null;
+  intervalSec?: number | null;
+  expiry?: number | string | null;
+}
+
 export async function settledMarkets(
   ctx: EcContext,
   limit = 40,
@@ -233,7 +246,7 @@ export async function settledMarkets(
     // not mean; claiming had been quietly sweeping every venue on the
     // deployment. Same rule, so the two agree on what "our markets" means.
     const venues = new Set(
-      (await ctx.exchange.client.listBinaryMarkets({ status: "Finalized", limit: 50 }))
+      (await ctx.exchange.client.listBinaryMarkets({ status: "Finalized", limit: 50 }) as BinaryMarketRow[])
         .map((r) => String(r.venueId ?? "").toLowerCase())
         .filter(Boolean),
     );
@@ -252,7 +265,7 @@ export async function settledMarkets(
     // so cutting at `want` server-side would drop recent settlements off the
     // edge. Sort locally, then cut.
     limit: Math.min(200, want * 3),
-  });
+  }) as BinaryMarketRow[];
   return rows
     .map((r) => ({
       marketId: r.marketId as Hex,

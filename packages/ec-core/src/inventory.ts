@@ -33,7 +33,9 @@ export async function seedInventory(ctx: EcContext, market: UnifiedMarket, oncha
   let collateralBal: bigint | null = null;
   if (collateral) {
     collateralBal = await exchange.client.getErc20Balance(collateral, addr);
-    if (collateralBal < 1_000n * one && config.faucetEnabled) {
+    // Non-null: the SDK's declared return type is wider than what an ERC20
+    // balance read actually returns, not a real null case.
+    if (collateralBal! < 1_000n * one && config.faucetEnabled) {
       await exchange.trader.faucet();
       await sleep(2_000);
       collateralBal = null; // stale after the mint

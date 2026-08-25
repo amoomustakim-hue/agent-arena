@@ -19,6 +19,7 @@ import {
   redeemOutcome,
   claimableOutcomes,
   estimatePayout,
+  settlementFeeBps,
   assertTxOk,
   type EcContext,
   type MarketOnchain,
@@ -164,13 +165,35 @@ export async function settle(
     } else {
       const market = marketStub(bb.marketId, opts.symbol ?? bb.marketId);
       try {
-        for (const leg of await claimableOutcomes(ctx, market, onchain)) {
-          const payout = await estimatePayout(ctx, market, onchain, leg.outcome, leg.shares);
-          const res = await redeemOutcome(ctx, market, onchain, leg.outcome);
-          assertTxOk(res as any, `redeem ${leg.outcome}`);
+        const addr = ctx.exchange.walletAddress;
+        if (!addr) throw new Error("no wallet address on the signer");
+
+        // `claimableOutcomes` takes what you actually HOLD, not the market —
+        // read both leg balances first (claim.ts's own sweep does the same).
+        const held = {
+          yes: await ctx.exchange.client.getOutcomeBalance({
+            outcomeToken: onchain.outcomeToken,
+            account: addr,
+            id: onchain.yesId,
+          }),
+          no: await ctx.exchange.client.getOutcomeBalance({
+            outcomeToken: onchain.outcomeToken,
+            account: addr,
+            id: onchain.noId,
+          }),
+        };
+
+        const legs = claimableOutcomes(onchain, held);
+        const feeBps = await settlementFeeBps(ctx, market, onchain);
+
+        for (const leg of legs) {
+          const amount = leg === 0 ? held.yes : held.no;
+          const payout = estimatePayout({ onchain, outcome: leg, amount, feeBps });
+          const res = await redeemOutcome(ctx, market, onchain, leg, amount);
+          assertTxOk(res as any, `redeem outcome ${leg}`);
           claimed.push({
-            outcome: leg.outcome,
-            shares: leg.shares,
+            outcome: leg === 0 ? "YES" : "NO",
+            shares: Number(amount),
             payout: Number(payout),
             ...((res as any)?.hash ? { hash: (res as any).hash } : {}),
           });

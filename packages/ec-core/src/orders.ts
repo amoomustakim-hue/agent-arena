@@ -143,7 +143,10 @@ export async function placeLimit(ctx: EcContext, args: PlaceLimitArgs): Promise<
   // revert and should stop the caller.
   assertTxOk(res, `${SIDES[`${outcome}-${side}`]} ${market.symbol}`);
 
-  const filledRaw = (res.fills ?? []).reduce((acc, f) => acc + f.quantityFilled, 0n);
+  const filledRaw = (res.fills ?? []).reduce(
+    (acc: bigint, f: { quantityFilled: bigint }) => acc + f.quantityFilled,
+    0n,
+  );
   const rested = res.orderId !== undefined && filledRaw < quantity;
   if (rested) restingOrders.set(String(res.orderId), onchain);
   return {
