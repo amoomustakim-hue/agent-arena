@@ -29,6 +29,7 @@ class Settings:
     # over stdio. `tsx` is invoked through Node directly rather than through a
     # shell so there is no shell quoting to get wrong on Windows.
     mcp_server: Path = REPO_ROOT / "packages" / "arena-mcp" / "src" / "server.ts"
+    trading_mcp_server: Path = REPO_ROOT / "packages" / "arena-trade-mcp" / "src" / "server.ts"
     tsx_cli: Path = REPO_ROOT / "node_modules" / "tsx" / "dist" / "cli.mjs"
 
     # Run the whole stack with no network. Propagated to the MCP child.
@@ -45,8 +46,15 @@ class Settings:
     )
 
     def mcp_command(self) -> tuple[str, list[str]]:
-        """The argv for spawning the MCP server."""
+        """The argv for spawning the read-only intelligence MCP server."""
         args = [str(self.tsx_cli), str(self.mcp_server)]
+        if self.fixtures:
+            args.append("--fixtures")
+        return ("node", args)
+
+    def trading_mcp_command(self) -> tuple[str, list[str]]:
+        """The argv for spawning the (read-only-in-practice) trading MCP server."""
+        args = [str(self.tsx_cli), str(self.trading_mcp_server)]
         if self.fixtures:
             args.append("--fixtures")
         return ("node", args)

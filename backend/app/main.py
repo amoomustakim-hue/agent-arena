@@ -21,6 +21,7 @@ from . import sessions
 from .agents.config import anthropic_status
 from .agents.council import convene
 from .config import settings
+from .trading import TradingUnavailable, trading
 from .venue import VenueUnavailable, venue
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)-7s %(name)s  %(message)s")
@@ -41,8 +42,13 @@ async def lifespan(app: FastAPI):
         await venue.connect()
     except VenueUnavailable as exc:
         log.error("venue unavailable at startup: %s", exc)
+    try:
+        await trading.connect()
+    except TradingUnavailable as exc:
+        log.error("trading MCP unavailable at startup: %s", exc)
     yield
     await venue.close()
+    await trading.close()
 
 
 app = FastAPI(
@@ -72,12 +78,14 @@ async def health() -> dict:
     """
     anthropic = anthropic_status()
     return {
-        "status": "ok" if venue.connected and anthropic["ready"] else "degraded",
+        "status": "ok" if venue.connected and trading.connected and anthropic["ready"] else "degraded",
         "venue": "connected" if venue.connected else "unavailable",
+        "trading": "connected" if trading.connected else "unavailable",
         "mode": "fixtures" if settings.fixtures else "live",
         "network": settings.network,
         "model": settings.model,
         "mcpTools": venue.tools,
+        "tradingMcpTools": trading.tools,
         "anthropic": anthropic,
     }
 
@@ -244,6 +252,57 @@ async def get_council(session_id: str) -> dict:
         "outcome": session.outcome,
         "events": [e.to_json() for e in session.blackbox.all()],
     }
+
+
+@app.post("/council/{session_id}/propose")
+async def propose_trade(session_id: str, body: dict | None = None) -> dict:
+    """Turn a FINISHED council's verdict into a priced, risk-checked proposal.
+
+    Read-only end to end — see trading.py and arena-trade-mcp's own README for
+    why. This records `trade_proposed` and `risk_verdict` into the SESSION's
+    own Black Box (not a bare pass-through), so the proposal joins the same
+    causal graph the belief history lives in: it cites the verdict, and
+    anything built on top of it later can trace back through the debate that
+    produced the number it is priced against.
+
+    There is deliberately no sibling endpoint that can approve or execute
+    this proposal.
+    """
+    session = sessions.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"No session {session_id}")
+    if session.status != "done" or not session.outcome or not session.outcome.get("verdict"):
+        raise HTTPException(status_code=409, detail="Council has not reached a verdict yet.")
+
+    verdict = session.outcome["verdict"]
+    budget = (body or {}).get("budgetCollateral")
+    try:
+        result = await trading.propose(session.market_id, verdict["p"], budget=budget)
+    except TradingUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    verdict_event = next((e for e in session.blackbox.all() if e.kind == "verdict"), None)
+    caused_by = [verdict_event.id] if verdict_event else []
+
+    proposed_id = None
+    if result["proposal"]:
+        proposed_id = session.blackbox.record("trade_proposed", result["proposal"], caused_by)
+        await sessions.broadcast_event(session, session.blackbox.get(proposed_id))
+    if result["risk"]:
+        risk_caused_by = [proposed_id] if proposed_id else caused_by
+        risk_id = session.blackbox.record("risk_verdict", result["risk"], risk_caused_by)
+        await sessions.broadcast_event(session, session.blackbox.get(risk_id))
+
+    return {"sessionId": session_id, **result}
+
+
+@app.get("/markets/{market_id}/settlement")
+async def get_settlement(market_id: str) -> dict:
+    """Whether a contract has settled on-chain. Read-only — no claim action."""
+    try:
+        return await trading.check_settlement(market_id)
+    except TradingUnavailable as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.post("/markets/{market_id}/audit")
