@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { RecordedEvent } from "@arena/core/blackbox.js";
 import { findEvent } from "@/lib/derive";
 
@@ -21,6 +22,10 @@ export default function MarketHeader({ all, visible }: { all: RecordedEvent[]; v
           <span>War room</span>
           <span>·</span>
           <span className="text-mid">{market.marketId.slice(0, 12)}…</span>
+          <span>·</span>
+          <Link href="/reputation" className="hover:text-mid">
+            Reputation
+          </Link>
         </div>
         <h1 className="mt-1 text-xl font-semibold text-bright">{market.symbol}</h1>
         <p className="mt-0.5 text-xs text-dim">

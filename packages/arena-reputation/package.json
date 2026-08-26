@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./scoring.js": "./src/scoring.ts",
     "./store.js": "./src/store.ts",
-    "./lineage.js": "./src/lineage.ts"
+    "./lineage.js": "./src/lineage.ts",
+    "./demo.js": "./src/demo.ts"
   },
   "scripts": { "typecheck": "tsc -p tsconfig.json --noEmit" },
   "dependencies": { "@arena/core": "workspace:*" },

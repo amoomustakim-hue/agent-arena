@@ -14,7 +14,7 @@ const nextConfig = {
   // `src/*.ts`), so Next has to compile them rather than treat them as built
   // deps. `@arena/core/blackbox.js` is the Black Box itself — pure, dependency
   // free, and safe to run in the browser.
-  transpilePackages: ["@arena/core", "@arena/market"],
+  transpilePackages: ["@arena/core", "@arena/market", "@arena/reputation"],
 
   webpack: (config) => {
     // Those packages are NodeNext ESM: internal imports are written with a
