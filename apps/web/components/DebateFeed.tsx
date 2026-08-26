@@ -1,12 +1,18 @@
 "use client";
 
-import type { RecordedEvent } from "@arena/core/blackbox.js";
+import type { EventId, RecordedEvent } from "@arena/core/blackbox.js";
 import { AGENT_COLOR, SEVERITY_COLOR, Panel, Pct } from "./ui";
 
 /** A challenge, plus whatever it caused (a revision or a held-ground), if
  *  that response has happened by the current seq — so the feed shows the
  *  attack and the outcome as one unit once both exist. */
-export default function DebateFeed({ visible }: { visible: RecordedEvent[] }) {
+export default function DebateFeed({
+  visible,
+  dead,
+}: {
+  visible: RecordedEvent[];
+  dead: Set<EventId> | null;
+}) {
   const challenges = visible.filter((e): e is Extract<RecordedEvent, { kind: "challenge_issued" }> => e.kind === "challenge_issued");
 
   type Response = Extract<RecordedEvent, { kind: "belief_revised" | "belief_held" }>;
@@ -23,8 +29,12 @@ export default function DebateFeed({ visible }: { visible: RecordedEvent[] }) {
         {challenges.map((c) => {
           const response = responseFor(c.id);
           const sevColor = SEVERITY_COLOR[c.severity];
+          const isDead = dead?.has(c.id) ?? false;
           return (
-            <div key={c.id} className="rounded-sm border border-hair p-3">
+            <div
+              key={c.id}
+              className={`rounded-sm border border-hair p-3 transition-opacity ${isDead ? "opacity-30" : ""}`}
+            >
               <div className="mb-1.5 flex items-center gap-2 text-2xs font-mono uppercase tracking-wide">
                 <span style={{ color: AGENT_COLOR[c.from] }}>{c.from}</span>
                 <span className="text-dim">→</span>
@@ -36,7 +46,12 @@ export default function DebateFeed({ visible }: { visible: RecordedEvent[] }) {
                   {c.severity}
                 </span>
               </div>
-              <p className="text-xs leading-relaxed text-mid">{c.claim}</p>
+              <p className={`text-xs leading-relaxed text-mid ${isDead ? "line-through" : ""}`}>{c.claim}</p>
+              {isDead && (
+                <p className="mt-1 text-2xs uppercase tracking-wide text-fatal">
+                  never issued — depended on the removed evidence
+                </p>
+              )}
 
               {response && (
                 <div className="mt-2 border-t border-hair pt-2">

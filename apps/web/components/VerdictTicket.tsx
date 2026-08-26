@@ -1,11 +1,18 @@
 "use client";
 
-import type { RecordedEvent } from "@arena/core/blackbox.js";
+import type { EventId, RecordedEvent } from "@arena/core/blackbox.js";
 import { findEvent, findAllEvents, pct, pp } from "@/lib/derive";
 import { AGENT_COLOR, Panel, Pct } from "./ui";
 
-export default function VerdictTicket({ visible }: { visible: RecordedEvent[] }) {
+export default function VerdictTicket({
+  visible,
+  counterfactual,
+}: {
+  visible: RecordedEvent[];
+  counterfactual: { label: string; dead: Set<EventId>; verdictSurvives: boolean } | null;
+}) {
   const verdict = findEvent(visible, "verdict");
+  const verdictDead = !!(verdict && counterfactual?.dead.has(verdict.id));
   const edge = findEvent(visible, "edge_computed");
   const proposal = findEvent(visible, "trade_proposed");
   const risk = findEvent(visible, "risk_verdict");
@@ -26,9 +33,26 @@ export default function VerdictTicket({ visible }: { visible: RecordedEvent[] })
   return (
     <Panel eyebrow="Closing statement" title="Verdict">
       <div className="flex flex-col gap-4">
-        <div>
+        {counterfactual && (
+          <div
+            className={`rounded-sm border px-3 py-2 text-2xs ${
+              verdictDead || !counterfactual.verdictSurvives
+                ? "border-fatal/40 bg-fatal/10 text-fatal"
+                : "border-indep/40 bg-indep/10 text-indep"
+            }`}
+          >
+            <strong className="font-mono uppercase tracking-wide">
+              Counterfactual — removed &ldquo;{counterfactual.label}&rdquo;
+            </strong>
+            <br />
+            {verdictDead || !counterfactual.verdictSurvives
+              ? "The verdict does NOT survive — it depended, directly or through the debate, on this evidence."
+              : "The verdict SURVIVES — nothing downstream of it required this evidence."}
+          </div>
+        )}
+        <div className={verdictDead ? "opacity-30" : ""}>
           <div className="flex items-baseline gap-3">
-            <span className="text-3xl font-semibold text-bright">
+            <span className={`text-3xl font-semibold text-bright ${verdictDead ? "line-through" : ""}`}>
               <Pct v={verdict.p} />
             </span>
             <span className="font-mono text-2xs text-dim">spread {(verdict.spread * 100).toFixed(0)}pp</span>
@@ -36,6 +60,11 @@ export default function VerdictTicket({ visible }: { visible: RecordedEvent[] })
           <p className="mt-1.5 text-xs leading-relaxed text-mid">{verdict.dissent}</p>
         </div>
 
+        {/* Everything below causally chains through the verdict in this
+            session (edge -> proposal -> risk -> approval -> execution ->
+            settlement -> scores), so a dead verdict greys out all of it in
+            one place rather than needing a per-row dead check. */}
+        <div className={`flex flex-col gap-4 ${verdictDead ? "pointer-events-none opacity-30" : ""}`}>
         {edge && (
           <Row label="Edge">
             <span className="tabular font-mono text-sm text-bright">
@@ -137,6 +166,7 @@ export default function VerdictTicket({ visible }: { visible: RecordedEvent[] })
             </div>
           </div>
         )}
+        </div>
       </div>
     </Panel>
   );
