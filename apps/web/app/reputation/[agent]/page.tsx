@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { AgentRole } from "@arena/core";
 import { loadReputation, statsFor } from "@/lib/reputation";
+import { getLineage } from "@/lib/lineage-actions";
 import { AGENT_COLOR, AGENT_ROLE_LABEL, Panel } from "@/components/ui";
 import DemoBanner from "@/components/DemoBanner";
 import CalibrationChart from "@/components/CalibrationChart";
+import ForkForm from "@/components/ForkForm";
 
 const VALID: AgentRole[] = ["bull", "bear", "forensics", "adversarial", "risk", "judge", "trader"];
 
@@ -21,6 +23,7 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ a
   const stats = statsFor(agent, records);
   const color = AGENT_COLOR[agent];
   const skill = stats.skillVsMarket;
+  const { root, forks } = await getLineage(agent);
 
   return (
     <div className="mx-auto flex max-w-[1000px] flex-col gap-5 px-5 py-6">
@@ -41,13 +44,20 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ a
             {agent}
           </h1>
           <span className="text-xs text-dim">{AGENT_ROLE_LABEL[agent]}</span>
-          <button
-            disabled
-            title="Not wired up yet — forking exists in the reputation engine (lineage.ts), not on this page"
-            className="ml-auto cursor-not-allowed rounded-sm border border-hair px-2.5 py-1 font-mono text-2xs text-dim opacity-60"
-          >
-            Fork agent
-          </button>
+        </div>
+        <div className="mt-3">
+          <ForkForm role={agent} parentPersona={root.persona} />
+          {forks.length > 0 && (
+            <p className="mt-2 text-2xs text-dim">
+              {forks.length} fork{forks.length === 1 ? "" : "s"}:{" "}
+              {forks.map((f, i) => (
+                <span key={f.id} className="font-mono">
+                  {i > 0 && ", "}
+                  {f.id} <span className="text-dim">by {f.author}</span>
+                </span>
+              ))}
+            </p>
+          )}
         </div>
       </header>
 

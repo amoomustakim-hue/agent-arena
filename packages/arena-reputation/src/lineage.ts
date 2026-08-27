@@ -12,9 +12,9 @@
  * lineage is displayed, the credibility is not transferred.
  */
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { AgentRole } from "@arena/core";
 
 export const REGISTRY = process.env.ARENA_REGISTRY ?? join("blackbox", "agents.json");
@@ -53,9 +53,25 @@ export async function loadRegistry(path = REGISTRY): Promise<Registry> {
   }
 }
 
+/**
+ * Write-then-rename rather than a direct `writeFile`. A plain write is not
+ * atomic: two callers writing the same path around the same time — which
+ * Next.js does for real, running several `generateStaticParams` pages in
+ * parallel workers that each call `register()` on page render — can
+ * interleave their bytes mid-write, corrupting the file into invalid JSON.
+ * `loadRegistry` then catches that parse failure and silently returns an
+ * EMPTY registry, so the corruption doesn't just lose the newest write, it
+ * erases every registration that came before it on the next read. A rename
+ * within the same directory is atomic on both POSIX and NTFS, so whichever
+ * writer finishes last fully replaces the file — a lost update from the
+ * race is still possible, but a corrupted, unparseable one is not.
+ */
 export async function saveRegistry(reg: Registry, path = REGISTRY): Promise<void> {
-  await mkdir(join(path, ".."), { recursive: true });
-  await writeFile(path, JSON.stringify(reg, null, 2), "utf8");
+  const dir = join(path, "..");
+  await mkdir(dir, { recursive: true });
+  const tmp = join(dir, `.agents.${randomUUID()}.tmp`);
+  await writeFile(tmp, JSON.stringify(reg, null, 2), "utf8");
+  await rename(tmp, path);
 }
 
 export async function register(
