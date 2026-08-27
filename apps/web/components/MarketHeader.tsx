@@ -26,6 +26,10 @@ export default function MarketHeader({ all, visible }: { all: RecordedEvent[]; v
           <Link href="/reputation" className="hover:text-mid">
             Reputation
           </Link>
+          <span>·</span>
+          <Link href="/markets" className="hover:text-mid">
+            Convene a live council →
+          </Link>
         </div>
         <h1 className="mt-1 text-xl font-semibold text-bright">{market.symbol}</h1>
         <p className="mt-0.5 text-xs text-dim">
