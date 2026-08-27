@@ -73,7 +73,10 @@ async function main() {
     // but far less room relative to its own window — and the risk floor scales
     // to the window. Sorting on raw seconds picks the wrong one.
     const ratio = (m: (typeof markets)[number]) => secondsLeft(m) / m.intervalSec;
-    const candidates = markets.filter(hasHeadroom).sort((a, b) => ratio(b) - ratio(a));
+    // NOT `.filter(hasHeadroom)` — Array.filter passes (element, index, array),
+    // and hasHeadroom's optional `fraction` param would silently receive the
+    // array index instead of its 0.25 default for every element past index 0.
+    const candidates = markets.filter((m) => hasHeadroom(m)).sort((a, b) => ratio(b) - ratio(a));
     if (has("--candidates")) {
       console.log(`\ncandidates (${candidates.length} of ${markets.length} have headroom):`);
       for (const m of markets) {

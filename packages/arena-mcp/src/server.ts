@@ -53,7 +53,15 @@ server.registerTool(
   async ({ asset, max }) => {
     const markets = await discover({ ...(asset ? { asset } : {}), max: max ?? 10 });
     if (!markets.length) return text("No active event contracts on this venue right now.");
-    const tradeable = markets.filter(hasHeadroom);
+    // NOT `.filter(hasHeadroom)`: Array.prototype.filter calls its callback as
+    // (element, index, array), and hasHeadroom's second parameter is an
+    // optional `fraction` with a default of 0.25 — passed bare, the ARRAY
+    // INDEX silently overrides that default on every element past index 0.
+    // A market at index 2 was being checked against fraction=2 (a 200%-of-
+    // window threshold no live market ever clears), wrongly dropping markets
+    // that clearly had headroom and wrongly naming a TOO-LATE market as the
+    // best candidate whenever the truly-tradeable one wasn't at index 0.
+    const tradeable = markets.filter((m) => hasHeadroom(m));
     return text(
       [
         `${markets.length} active event contract(s):`,
