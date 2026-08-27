@@ -21,6 +21,7 @@ from . import sessions
 from .agents.config import anthropic_status
 from .agents.council import convene
 from .config import settings
+from .settle import score_session
 from .trading import TradingUnavailable, trading
 from .venue import VenueUnavailable, venue
 
@@ -58,10 +59,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# The frontend is served from a different origin in development.
+# The frontend is served from a different origin in development. apps/web
+# runs on 3100 (see its package.json), not Next's default 3000 — a plain
+# copy-paste of the usual default here would have silently blocked every
+# request from the actual frontend with no server-side error to point at.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3100", "http://127.0.0.1:3100"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -303,6 +307,49 @@ async def get_settlement(market_id: str) -> dict:
         return await trading.check_settlement(market_id)
     except TradingUnavailable as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/council/{session_id}/settle")
+async def settle_session(session_id: str) -> dict:
+    """Manual settle trigger: check the chain, then score the council.
+
+    A manual trigger rather than a background watcher on purpose — for a
+    demo, a button you press on stage is more controllable than a poller you
+    have to trust fired at the right moment, and a 15-minute contract means
+    you are never waiting long anyway. Refuses to score anything if the
+    session hasn't reached a verdict, or if the market hasn't actually
+    settled on-chain yet — an unsettled forecast is not a result, and
+    scoring it would inflate every number downstream of it.
+    """
+    session = sessions.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"No session {session_id}")
+    if any(e.kind == "settled" for e in session.blackbox.all()):
+        raise HTTPException(status_code=409, detail="Already settled.")
+
+    try:
+        result = await trading.check_settlement(session.market_id)
+    except TradingUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    outcome = result["outcome"]
+    if outcome is None:
+        return {"sessionId": session_id, "settled": False, "detail": result["text"]}
+
+    verdict_event = next((e for e in session.blackbox.all() if e.kind == "verdict"), None)
+    settled_id = session.blackbox.record("settled", {"outcome": outcome}, [verdict_event.id] if verdict_event else [])
+    await sessions.broadcast_event(session, session.blackbox.get(settled_id))
+
+    scores = score_session(session.blackbox, outcome, [settled_id])
+    for row in scores:
+        scored_event = next(
+            (e for e in reversed(session.blackbox.all()) if e.kind == "scored" and e.data["agent"] == row["agent"]),
+            None,
+        )
+        if scored_event:
+            await sessions.broadcast_event(session, scored_event)
+
+    return {"sessionId": session_id, "settled": True, "outcome": outcome, "scores": scores}
 
 
 @app.post("/markets/{market_id}/audit")

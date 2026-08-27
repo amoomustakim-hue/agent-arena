@@ -172,9 +172,21 @@ async def node_observe(state: CouncilState) -> dict:
     )
     signal_event_ids: dict[str, EventId] = {}
     for s in state["signals"]:
+        # The MCP evidence tool renders two SECTION headers (independent /
+        # circular) but never a per-signal origin string, so this is all the
+        # granularity venue.py's parser can recover — "book" vs "underlying",
+        # not the full five-way SignalOrigin union the TS side has. That's a
+        # real loss of detail, but it preserves the one property the whole
+        # war room UI actually depends on: isCircular() on the frontend keys
+        # off exactly "book"/"derived" vs "underlying"/"chain"/"clock", and
+        # the literal string "circular" is not a member of that union at all
+        # — it would have silently rendered every circular signal from a live
+        # Python session as independent, which is the one distinction this
+        # product cannot afford to get backwards.
+        origin = "book" if s["circular"] else "underlying"
         eid = bb.record(
             "signal_captured",
-            {"signal": {"id": s["id"], "label": s["label"], "value": s["value"], "origin": "circular" if s["circular"] else "underlying", "staleness": s.get("staleness", 0)}},
+            {"signal": {"id": s["id"], "label": s["label"], "value": s["value"], "origin": origin, "staleness": s.get("staleness", 0)}},
             [market_event_id],
         )
         signal_event_ids[s["id"]] = eid
