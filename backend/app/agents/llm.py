@@ -20,7 +20,7 @@ Two providers behind one `ask()` — see `settings.llm_provider`:
 
 from __future__ import annotations
 
-import json
+import os
 from typing import Any, TypeVar
 
 import anthropic
@@ -50,7 +50,11 @@ def _groq():
         # requirements.txt), but the dependency exists FOR Groq specifically.
         from openai import AsyncOpenAI
 
-        _groq_client = AsyncOpenAI(base_url="https://api.groq.com/openai/v1")
+        # `api_key` must be passed explicitly: AsyncOpenAI's zero-arg
+        # constructor falls back to OPENAI_API_KEY, not GROQ_API_KEY, and
+        # would otherwise raise "missing credentials" even with a real Groq
+        # key sitting right there in the environment.
+        _groq_client = AsyncOpenAI(api_key=os.environ["GROQ_API_KEY"], base_url="https://api.groq.com/openai/v1")
     return _groq_client
 
 
