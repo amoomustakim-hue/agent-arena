@@ -67,11 +67,13 @@ export default function MarketsPage() {
         </p>
       </header>
 
-      {health && !health.anthropic.ready && (
+      {health && !health.llm.ready && (
         <div className="rounded-sm border border-material/40 bg-material/10 px-3 py-2 text-2xs text-material">
-          <strong className="font-mono uppercase tracking-wide">No Anthropic credentials</strong> —{" "}
-          {health.anthropic.detail} You can still browse markets and start a session; the council
-          itself will fail at the first model call until a key is configured.
+          <strong className="font-mono uppercase tracking-wide">
+            No {health.llm.provider} credentials
+          </strong>{" "}
+          — {health.llm.detail} You can still browse markets and start a session; the council
+          itself will fail at the first model call until this is configured.
         </div>
       )}
       {health && health.venue !== "connected" && (

@@ -1,14 +1,27 @@
-"""One structured call to Claude, plus the mechanical citation audit — which is
-NOT reimplemented here. It is called over MCP against the already-tested
-TypeScript `auditCitations` (see venue.audit). This is the same choice made
-for market data: Python orchestrates, TypeScript owns venue-specific logic
-exactly once.
+"""One structured call to the configured LLM, plus the mechanical citation
+audit — which is NOT reimplemented here. It is called over MCP against the
+already-tested TypeScript `auditCitations` (see venue.audit). This is the
+same choice made for market data: Python orchestrates, TypeScript owns
+venue-specific logic exactly once.
+
+Two providers behind one `ask()` — see `settings.llm_provider`:
+
+  - anthropic (default): the real demo. `client.messages.parse()` with
+    Claude's own structured-output support.
+  - groq: free-tier testing. Groq hosts open-weight models (not Claude)
+    behind an OpenAI-compatible API, which is why this reaches for the
+    `openai` SDK rather than a Groq-specific one — pointed at Groq's
+    base_url, that SDK IS a Groq client. Structured outputs there are
+    strict-mode JSON schema, not a Pydantic-native `output_format`, so this
+    module carries a small schema translator council.py and personas.py
+    never need to know exists — every caller still just hands `ask()` a
+    Pydantic model and gets one back.
 """
 
 from __future__ import annotations
 
-import asyncio
-from typing import TypeVar
+import json
+from typing import Any, TypeVar
 
 import anthropic
 from pydantic import BaseModel
@@ -18,14 +31,74 @@ from ..venue import Venue
 
 T = TypeVar("T", bound=BaseModel)
 
-client = anthropic.AsyncAnthropic()
+_anthropic_client: anthropic.AsyncAnthropic | None = None
+_groq_client: Any | None = None
 
 
-async def ask(schema: type[T], system: str, prompt: str, *, effort: str = "medium") -> T:
-    """One structured-output call. Retries the SDK already handles (429, 5xx,
-    connection errors) via max_retries; this only guards the shape of the
-    response, since `parsed_output` can be None on a degenerate stop."""
-    response = await client.messages.parse(
+def _anthropic() -> anthropic.AsyncAnthropic:
+    global _anthropic_client
+    if _anthropic_client is None:
+        _anthropic_client = anthropic.AsyncAnthropic()
+    return _anthropic_client
+
+
+def _groq():
+    global _groq_client
+    if _groq_client is None:
+        # Imported here, not at module top, so a Claude-only deployment never
+        # has to care whether `openai` is importable — it is (see
+        # requirements.txt), but the dependency exists FOR Groq specifically.
+        from openai import AsyncOpenAI
+
+        _groq_client = AsyncOpenAI(base_url="https://api.groq.com/openai/v1")
+    return _groq_client
+
+
+def _strict_schema(schema: type[BaseModel]) -> dict:
+    """Pydantic's `model_json_schema()` toward Groq/OpenAI strict mode.
+
+    Strict mode requires, recursively, on every object: `additionalProperties:
+    false` and EVERY property listed in `required` (no true-optional fields).
+    Pydantic does not set the former and our schemas already satisfy the
+    latter (see schemas.py — nothing here is `Optional`), so the only real
+    work is walking `$defs` and inlining `additionalProperties: false`
+    everywhere an object appears, including inside nested $refs.
+    """
+    raw = schema.model_json_schema()
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("type") == "object" and "properties" in node:
+                node["additionalProperties"] = False
+                node.setdefault("required", list(node["properties"].keys()))
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+
+    walk(raw)
+    return raw
+
+
+async def _ask_groq(schema: type[T], system: str, prompt: str) -> T:
+    client = _groq()
+    response = await client.chat.completions.create(
+        model=settings.groq_model,
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+        response_format={
+            "type": "json_schema",
+            "json_schema": {"name": schema.__name__, "strict": True, "schema": _strict_schema(schema)},
+        },
+    )
+    content = response.choices[0].message.content
+    if not content:
+        raise RuntimeError(f"{settings.groq_model} (Groq) returned no content")
+    return schema.model_validate_json(content)
+
+
+async def _ask_anthropic(schema: type[T], system: str, prompt: str, effort: str) -> T:
+    response = await _anthropic().messages.parse(
         model=settings.model,
         max_tokens=8000,
         system=system,
@@ -37,6 +110,17 @@ async def ask(schema: type[T], system: str, prompt: str, *, effort: str = "mediu
     if response.parsed_output is None:
         raise RuntimeError(f"{settings.model} returned no parseable output — stop_reason={response.stop_reason}")
     return response.parsed_output
+
+
+async def ask(schema: type[T], system: str, prompt: str, *, effort: str = "medium") -> T:
+    """One structured-output call. On the Anthropic path, retries the SDK
+    already handles (429, 5xx, connection errors) via max_retries; this only
+    guards the shape of the response, since `parsed_output` can be None on a
+    degenerate stop. `effort` is Claude-specific and silently ignored on the
+    Groq path — Groq has no equivalent dial."""
+    if settings.llm_provider == "groq":
+        return await _ask_groq(schema, system, prompt)
+    return await _ask_anthropic(schema, system, prompt, effort)
 
 
 async def audit(venue: Venue, market_id: str, cites: list[str], directional: bool = True) -> dict:

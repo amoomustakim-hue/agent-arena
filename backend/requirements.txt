@@ -21,6 +21,12 @@ mcp>=1.29.0,<2
 anthropic>=0.75.0
 langgraph>=0.6.0
 
+# The Groq path (LLM_PROVIDER=groq) reaches it via the OpenAI-compatible
+# Chat Completions API, so this IS the Groq client for that path — there is
+# no separate Groq SDK dependency. Groq's free tier is what makes it useful
+# for testing the orchestration without spending on Anthropic.
+openai>=1.50.0
+
 # Tests
 pytest>=8.4.0
 pytest-asyncio>=1.2.0

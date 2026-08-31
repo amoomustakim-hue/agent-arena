@@ -23,7 +23,7 @@ export interface HealthStatus {
   mode: string;
   network: string;
   model: string;
-  anthropic: { ready: boolean; source: string; detail?: string };
+  llm: { ready: boolean; source: string; provider: string; model?: string; detail?: string };
 }
 
 async function json<T>(res: Response): Promise<T> {

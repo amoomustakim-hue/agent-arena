@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from . import sessions
-from .agents.config import anthropic_status
+from .agents.config import llm_status
 from .agents.council import convene
 from .config import settings
 from .settle import score_session
@@ -80,9 +80,9 @@ async def health() -> dict:
     down" and "the API is up but the venue is not" is the first thing anyone
     debugging this needs, and a 500 collapses the two.
     """
-    anthropic = anthropic_status()
+    llm = llm_status()
     return {
-        "status": "ok" if venue.connected and trading.connected and anthropic["ready"] else "degraded",
+        "status": "ok" if venue.connected and trading.connected and llm["ready"] else "degraded",
         "venue": "connected" if venue.connected else "unavailable",
         "trading": "connected" if trading.connected else "unavailable",
         "mode": "fixtures" if settings.fixtures else "live",
@@ -90,7 +90,7 @@ async def health() -> dict:
         "model": settings.model,
         "mcpTools": venue.tools,
         "tradingMcpTools": trading.tools,
-        "anthropic": anthropic,
+        "llm": llm,
     }
 
 
@@ -156,7 +156,7 @@ async def start_council(market_id: str, body: ConveneRequest = ConveneRequest())
     that depends on it disappear along with the tab. Subscribe with
     GET /ws/council/{sessionId}; late subscribers are replayed from seq 0.
     """
-    status = anthropic_status()
+    status = llm_status()
     if not status["ready"]:
         raise HTTPException(status_code=503, detail=status["detail"])
 

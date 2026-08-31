@@ -38,6 +38,19 @@ class Settings:
     network: str = field(default_factory=lambda: os.getenv("NETWORK", "testnet"))
     model: str = field(default_factory=lambda: os.getenv("ARENA_MODEL", "claude-opus-5"))
 
+    # Which LLM backs the council. "anthropic" (default, real demo) or "groq"
+    # — Groq hosts open-weight models (not Claude) behind an OpenAI-compatible
+    # API with a genuinely free tier, which makes it useful for testing the
+    # orchestration (LangGraph flow, MCP tool calls, event recording, the
+    # WebSocket stream) end to end at zero cost. It is not a substitute for
+    # judgment quality: this swaps which model argues, not just which bill it
+    # goes on. gpt-oss-120b is the default because it is one of the few models
+    # Groq runs in strict structured-output mode (guaranteed schema-valid
+    # JSON via constrained decoding), which the council's belief/verdict
+    # schemas depend on exactly as much as Claude's structured outputs do.
+    llm_provider: str = field(default_factory=lambda: os.getenv("LLM_PROVIDER", "anthropic").lower())
+    groq_model: str = field(default_factory=lambda: os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"))
+
     # Completed sessions live here as Black Box JSONL. The TypeScript reputation
     # tools read the same directory — the file format is the contract between
     # the two languages, which is why neither imports the other.
