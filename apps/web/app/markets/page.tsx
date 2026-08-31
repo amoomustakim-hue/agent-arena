@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getHealth, listMarkets, startCouncil, type MarketSummary, type HealthStatus } from "@/lib/api";
 import { Panel } from "@/components/ui";
+import ConnectWallet from "@/components/ConnectWallet";
 
 export default function MarketsPage() {
   const router = useRouter();
@@ -58,6 +59,9 @@ export default function MarketsPage() {
           </Link>
           <span>·</span>
           <span>Convene a council</span>
+          <span className="ml-auto">
+            <ConnectWallet />
+          </span>
         </div>
         <h1 className="mt-1 text-xl font-semibold text-bright">Live event contracts</h1>
         <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-dim">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { loadReputation, leaderboard } from "@/lib/reputation";
 import { AGENT_COLOR, AGENT_ROLE_LABEL } from "@/components/ui";
 import DemoBanner from "@/components/DemoBanner";
+import ConnectWallet from "@/components/ConnectWallet";
 
 export default async function ReputationPage() {
   const { records, isDemo } = await loadReputation();
@@ -17,6 +18,9 @@ export default async function ReputationPage() {
           </Link>
           <span>·</span>
           <span>Reputation</span>
+          <span className="ml-auto">
+            <ConnectWallet />
+          </span>
         </div>
         <h1 className="mt-1 text-xl font-semibold text-bright">Leaderboard</h1>
         <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-dim">

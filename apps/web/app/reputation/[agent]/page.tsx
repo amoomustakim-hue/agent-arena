@@ -7,6 +7,7 @@ import { AGENT_COLOR, AGENT_ROLE_LABEL, Panel } from "@/components/ui";
 import DemoBanner from "@/components/DemoBanner";
 import CalibrationChart from "@/components/CalibrationChart";
 import ForkForm from "@/components/ForkForm";
+import ConnectWallet from "@/components/ConnectWallet";
 
 const VALID: AgentRole[] = ["bull", "bear", "forensics", "adversarial", "risk", "judge", "trader"];
 
@@ -38,6 +39,9 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ a
           </Link>
           <span>·</span>
           <span style={{ color }}>{agent}</span>
+          <span className="ml-auto">
+            <ConnectWallet />
+          </span>
         </div>
         <div className="mt-1 flex items-baseline gap-3">
           <h1 className="text-2xl font-semibold uppercase tracking-wide" style={{ color }}>

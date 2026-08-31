@@ -35,6 +35,8 @@ import {
   type Registry,
 } from "@arena/reputation";
 import type { AgentRole } from "@arena/core";
+import { verifyIdentity } from "./wallet-verify";
+import { forkStatement } from "./fork-statement";
 
 const REGISTRY_PATH = join(process.cwd(), "..", "..", "blackbox", "agents.json");
 
@@ -96,13 +98,32 @@ export async function forkAgentAction(role: AgentRole, formData: FormData): Prom
   const slug = String(formData.get("slug") ?? "").trim();
   const displayName = String(formData.get("displayName") ?? "").trim();
   const persona = String(formData.get("persona") ?? "").trim();
-  const author = String(formData.get("author") ?? "").trim() || "anonymous";
+  const typedAuthor = String(formData.get("author") ?? "").trim();
 
   if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
     return { ok: false, error: "Slug must be lowercase letters, numbers, and hyphens only." };
   }
   if (!displayName) return { ok: false, error: "Give it a display name." };
   if (persona.length < 20) return { ok: false, error: "Persona is too short to be a real strategy — say what it actually does differently." };
+
+  // A connected wallet's signature makes authorship real instead of a typed
+  // string anyone could put anything in. Optional — a wallet may not be
+  // available on a demo machine — so this only upgrades `author`, it never
+  // blocks the fork when absent.
+  let author = typedAuthor || "anonymous";
+  const walletAddress = String(formData.get("walletAddress") ?? "").trim();
+  const walletMessage = String(formData.get("walletMessage") ?? "");
+  const walletSignature = String(formData.get("walletSignature") ?? "");
+  if (walletAddress && walletMessage && walletSignature) {
+    const result = await verifyIdentity(
+      walletAddress,
+      walletMessage,
+      walletSignature,
+      forkStatement(role, slug, displayName),
+    );
+    if (!result.ok) return { ok: false, error: `Wallet signature invalid: ${result.error}` };
+    author = `${result.address} (signed)`;
+  }
 
   try {
     // Materialize the root here, inside this one action call, rather than at
