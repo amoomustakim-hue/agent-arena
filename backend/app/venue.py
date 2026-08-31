@@ -139,6 +139,7 @@ class Venue:
 
     async def market(self, market_id: str) -> dict[str, Any]:
         text = await self.call("get_market", marketId=market_id)
+        window = _find_window(text)
         return {
             "marketId": market_id,
             "text": text,
@@ -146,6 +147,13 @@ class Venue:
             "status": _find_int(text, r"On-chain status:\s*(\d+)"),
             "yesMid": _find_pct(text, r"mid\s+([\d.]+)%"),
             "timeLeft": _find_str(text, r"Time left:\s*(\S+)"),
+            # All live series are relative contracts (strike 0 sentinel — see
+            # ec-core's gotcha on this). No live series has shown a real
+            # fixed strike during this project; if one ever does, `reference`
+            # above still carries the number, just not under this key.
+            "strike": 0,
+            "expiry": window[0] if window else None,
+            "intervalSec": window[1] if window else None,
         }
 
     async def evidence(self, market_id: str) -> dict[str, Any]:
@@ -212,6 +220,29 @@ def _find_pct(text: str, pattern: str, flags: int = 0) -> float | None:
     """A percentage in the text becomes a probability in (0,1)."""
     v = _find_float(text, pattern, flags)
     return v / 100 if v is not None else None
+
+
+def _find_window(text: str) -> tuple[int, int] | None:
+    """`(expiry, intervalSec)` in unix seconds, from the one line get_market
+    prints both window edges on: "Window: 15m — opened <iso>, expires <iso>".
+
+    Deriving both numbers from the two ISO timestamps rather than parsing the
+    "15m" / "4.0h" duration string directly is deliberate — that string is
+    for a human, its formatting has already changed once (arena-mcp's
+    gotcha #12), and re-deriving from the two instants venue-side never
+    depends on it staying in one shape.
+    """
+    from datetime import datetime
+
+    m = re.search(r"opened (\S+), expires (\S+)", text)
+    if not m:
+        return None
+    try:
+        opened = datetime.fromisoformat(m.group(1).replace("Z", "+00:00"))
+        expires = datetime.fromisoformat(m.group(2).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return int(expires.timestamp()), int((expires - opened).total_seconds())
 
 
 _MARKET_RE = re.compile(

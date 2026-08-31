@@ -184,6 +184,7 @@ async def start_council(market_id: str, body: ConveneRequest = ConveneRequest())
                 evidence_text=e["text"],
                 signals=e["signals"],
                 market_implied=m.get("yesMid"),
+                market_meta={"strike": m.get("strike", 0), "expiry": m.get("expiry"), "intervalSec": m.get("intervalSec"), "status": m.get("status")},
                 session_id=session_id,
                 budget_s=body.budgetS,
                 # convene() calls these synchronously; bridge to the async

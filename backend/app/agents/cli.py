@@ -69,6 +69,7 @@ async def main() -> None:
             evidence_text=e["text"],
             signals=e["signals"],
             market_implied=m.get("yesMid"),
+            market_meta={"strike": m.get("strike", 0), "expiry": m.get("expiry"), "intervalSec": m.get("intervalSec"), "status": m.get("status")},
             session_id=session_id,
             budget_s=args.budget,
             on_progress=on_progress,

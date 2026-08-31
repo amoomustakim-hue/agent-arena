@@ -112,6 +112,7 @@ class CouncilState(TypedDict, total=False):
     market_id: str
     market_text: str
     evidence_text: str
+    market_meta: dict
     signals: list[dict]
     market_implied: float | None
     budget: Budget
@@ -162,12 +163,25 @@ async def node_observe(state: CouncilState) -> dict:
     bb = state["blackbox"]
     _emit(state, "observe", state["market_id"])
 
+    meta = state.get("market_meta") or {}
     market_event_id = bb.record(
         "market_observed",
         {
             "marketId": state["market_id"],
             "symbol": state["market_id"],
             "yesMid": state.get("market_implied"),
+            # The TS BlackBoxEvent union requires these four as non-optional
+            # numbers. Omitting them (as an earlier version of this did) is
+            # not a smaller event — it is a market_observed the frontend
+            # cannot render: MarketHeader computes `new Date(expiry * 1000)`
+            # directly, and undefined * 1000 is NaN, which throws
+            # "Invalid time value" the moment a live session's first event
+            # paints. `strike: 0` is not a fallback here, it is the correct
+            # value — every live series is a relative contract.
+            "strike": meta.get("strike", 0),
+            "expiry": meta.get("expiry") or 0,
+            "intervalSec": meta.get("intervalSec") or 0,
+            "status": meta.get("status") or 0,
         },
     )
     signal_event_ids: dict[str, EventId] = {}
@@ -537,6 +551,7 @@ async def convene(
     market_implied: float | None,
     session_id: str,
     budget_s: float = DEFAULT_BUDGET_S,
+    market_meta: dict | None = None,
     on_progress: Callable[[dict], None] | None = None,
     on_event: Callable[[Any], None] | None = None,
     blackbox: BlackBox | None = None,
@@ -560,6 +575,7 @@ async def convene(
         "evidence_text": evidence_text,
         "signals": signals,
         "market_implied": market_implied,
+        "market_meta": market_meta or {},
         "budget": Budget(budget_s),
         "blackbox": bb,
         "on_progress": on_progress,
