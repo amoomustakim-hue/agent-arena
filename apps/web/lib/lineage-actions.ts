@@ -143,4 +143,16 @@ export async function agentAncestry(id: string): Promise<AgentVersion[]> {
   return ancestry(reg, id);
 }
 
+/**
+ * Every fork a wallet has signed authorship of, across all roles — not
+ * "contains this string," an exact match against the `${address} (signed)`
+ * shape `forkAgentAction` writes, so a typed-text author that happens to
+ * paste an address never gets credited as a real signature it never gave.
+ */
+export async function getForksByWallet(address: string): Promise<AgentVersion[]> {
+  const reg = await loadRegistry(REGISTRY_PATH);
+  const needle = `${address.toLowerCase()} (signed)`;
+  return reg.agents.filter((a) => a.author.toLowerCase() === needle);
+}
+
 export type { Registry };

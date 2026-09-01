@@ -14,11 +14,11 @@ export default function CalibrationChart({ buckets }: { buckets: AgentStats["cal
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[280px]" role="img" aria-label="Calibration chart">
       {/* diagonal — perfect calibration */}
-      <line x1={s(0)} y1={y(0)} x2={s(1)} y2={y(1)} stroke="#273347" strokeWidth={1} strokeDasharray="3 3" />
+      <line x1={s(0)} y1={y(0)} x2={s(1)} y2={y(1)} stroke="#363636" strokeWidth={1} strokeDasharray="3 3" />
       {/* axes */}
-      <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke="#1b2431" strokeWidth={1} />
-      <line x1={PAD} y1={PAD} x2={PAD} y2={H - PAD} stroke="#1b2431" strokeWidth={1} />
-      <text x={W / 2} y={H - 6} textAnchor="middle" fontSize={9} fontFamily="ui-monospace" fill="#5d6b80">
+      <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke="#262626" strokeWidth={1} />
+      <line x1={PAD} y1={PAD} x2={PAD} y2={H - PAD} stroke="#262626" strokeWidth={1} />
+      <text x={W / 2} y={H - 6} textAnchor="middle" fontSize={9} fontFamily="ui-monospace" fill="#8a8a8a">
         predicted
       </text>
       <text
@@ -27,7 +27,7 @@ export default function CalibrationChart({ buckets }: { buckets: AgentStats["cal
         textAnchor="middle"
         fontSize={9}
         fontFamily="ui-monospace"
-        fill="#5d6b80"
+        fill="#8a8a8a"
         transform={`rotate(-90 10 ${H / 2})`}
       >
         actual
@@ -39,9 +39,9 @@ export default function CalibrationChart({ buckets }: { buckets: AgentStats["cal
             cx={s(b.predicted)}
             cy={y(b.actual)}
             r={Math.max(3, Math.min(10, Math.sqrt(b.count)))}
-            fill="#2ee6a8"
+            fill="#f5f5f5"
             fillOpacity={0.35}
-            stroke="#2ee6a8"
+            stroke="#f5f5f5"
             strokeWidth={1}
           />
         </g>

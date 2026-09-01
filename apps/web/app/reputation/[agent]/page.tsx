@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { AgentRole } from "@arena/core";
 import { loadReputation, statsFor } from "@/lib/reputation";
 import { getLineage } from "@/lib/lineage-actions";
-import { AGENT_COLOR, AGENT_ROLE_LABEL, Panel } from "@/components/ui";
+import { AGENT_ROLE_LABEL, Panel } from "@/components/ui";
 import DemoBanner from "@/components/DemoBanner";
 import CalibrationChart from "@/components/CalibrationChart";
 import ForkForm from "@/components/ForkForm";
@@ -22,7 +22,6 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ a
 
   const { records, isDemo } = await loadReputation();
   const stats = statsFor(agent, records);
-  const color = AGENT_COLOR[agent];
   const skill = stats.skillVsMarket;
   const { root, forks } = await getLineage(agent);
 
@@ -38,15 +37,13 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ a
             Reputation
           </Link>
           <span>·</span>
-          <span style={{ color }}>{agent}</span>
+          <span className="text-bright">{agent}</span>
           <span className="ml-auto">
             <ConnectWallet />
           </span>
         </div>
         <div className="mt-1 flex items-baseline gap-3">
-          <h1 className="text-2xl font-semibold uppercase tracking-wide" style={{ color }}>
-            {agent}
-          </h1>
+          <h1 className="text-2xl font-semibold uppercase tracking-wide text-bright">{agent}</h1>
           <span className="text-xs text-dim">{AGENT_ROLE_LABEL[agent]}</span>
         </div>
         <div className="mt-3">
@@ -77,7 +74,7 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ a
             <Stat
               label="Vs. market"
               value={skill === null ? "n/a" : `${skill >= 0 ? "+" : ""}${skill.toFixed(3)}`}
-              accent={skill === null ? undefined : skill > 0.05 ? "#2ee6a8" : skill < -0.05 ? "#ff9d3d" : undefined}
+              strong={skill !== null && skill > 0.05}
               hint={skill === null ? undefined : skill > 0.05 ? "beats market" : skill < -0.05 ? "loses to market" : "matches market"}
             />
             <Stat label="Accuracy" value={`${(stats.accuracy * 100).toFixed(0)}%`} hint="reported, not ranked on" />
@@ -127,7 +124,7 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ a
                 {stats.revisions === 1 ? "" : "s"} under challenge;{" "}
                 <span className="font-mono text-bright">{stats.revisionsHelpful}</span> of those moved
                 toward the truth (
-                <span className="font-mono" style={{ color: (stats.revisionQuality ?? 0) >= 0.5 ? "#2ee6a8" : "#ff9d3d" }}>
+                <span className={`font-mono ${(stats.revisionQuality ?? 0) >= 0.5 ? "font-semibold text-bright" : "text-dim"}`}>
                   {((stats.revisionQuality ?? 0) * 100).toFixed(0)}%
                 </span>
                 ). Opening Brier {stats.brierOpening.toFixed(4)} → final {stats.brier.toFixed(4)} (
@@ -143,14 +140,12 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ a
   );
 }
 
-function Stat({ label, value, accent, hint }: { label: string; value: string; accent?: string; hint?: string }) {
+function Stat({ label, value, strong, hint }: { label: string; value: string; strong?: boolean; hint?: string }) {
   return (
-    <div className="rounded-md bg-panel p-3 shadow-panel">
+    <div className="rounded-md bg-panel p-3.5 shadow-panel">
       <div className="text-2xs font-mono uppercase tracking-widest text-dim">{label}</div>
-      <div className="tabular mt-1 font-mono text-xl" style={{ color: accent ?? "#dce6f2" }}>
-        {value}
-      </div>
-      {hint && <div className="mt-0.5 text-2xs text-dim">{hint}</div>}
+      <div className={`tabular mt-1 font-mono text-xl ${strong ? "text-bright" : "text-mid"}`}>{value}</div>
+      {hint && <div className="mt-0.5 text-xs text-dim">{hint}</div>}
     </div>
   );
 }

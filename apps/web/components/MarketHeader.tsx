@@ -61,7 +61,7 @@ export default function MarketHeader({ all, visible }: { all: RecordedEvent[]; v
         <Stat
           label="Status"
           value={settled ? `Settled ${settled.outcome}` : "In session"}
-          accent={settled ? (settled.outcome === "NO" ? "#ff5d6c" : settled.outcome === "YES" ? "#3ddc84" : "#8c9bb0") : "#2ee6a8"}
+          strong={!!settled}
         />
         <ConnectWallet />
       </div>
@@ -69,11 +69,11 @@ export default function MarketHeader({ all, visible }: { all: RecordedEvent[]; v
   );
 }
 
-function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
+function Stat({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="text-right">
       <div className="text-2xs font-mono uppercase tracking-widest text-dim">{label}</div>
-      <div className="tabular font-mono text-sm" style={{ color: accent ?? "#dce6f2" }}>
+      <div className={`tabular font-mono text-sm ${strong ? "font-semibold text-bright" : "text-mid"}`}>
         {value}
       </div>
     </div>

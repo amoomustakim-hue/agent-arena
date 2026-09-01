@@ -2,7 +2,7 @@
 
 import type { RecordedEvent, AgentRole } from "@arena/core/blackbox.js";
 import { currentBelief, revisionCount, AGENTS } from "@/lib/derive";
-import { AGENT_COLOR, AGENT_ROLE_LABEL, Panel, Pct } from "./ui";
+import { AGENT_ROLE_LABEL, Panel, Pct } from "./ui";
 
 export default function AgentRoster({
   visible,
@@ -14,10 +14,9 @@ export default function AgentRoster({
   selected: AgentRole | null;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       {AGENTS.map((agent) => {
         const belief = currentBelief(visible, agent);
-        const color = AGENT_COLOR[agent];
         const revisions = revisionCount(visible, agent);
         const isSelected = selected === agent;
         return (
@@ -26,20 +25,14 @@ export default function AgentRoster({
             onClick={() => onSelect(isSelected ? null : agent)}
             className="text-left"
           >
-            <Panel
-              className="h-full transition-shadow"
-              style={isSelected ? { boxShadow: `0 0 0 1px ${color}, 0 0 0 1px #1b2431 inset` } : undefined}
-            >
-              <div className="flex flex-col gap-2">
+            <Panel className={`h-full transition-shadow ${isSelected ? "ring-1 ring-bright" : ""}`}>
+              <div className="flex flex-col gap-2.5">
                 <div className="flex items-center justify-between">
-                  <span
-                    className="text-2xs font-mono uppercase tracking-widest"
-                    style={{ color }}
-                  >
+                  <span className="text-2xs font-mono font-semibold uppercase tracking-widest text-bright">
                     {agent}
                   </span>
                   {revisions > 0 && (
-                    <span className="text-2xs font-mono text-dim">{revisions}×revised</span>
+                    <span className="text-2xs font-mono text-dim">{revisions}× revised</span>
                   )}
                 </div>
                 <div className="text-2xl font-semibold text-bright">
@@ -53,9 +46,7 @@ export default function AgentRoster({
                 {belief?.heldAt && (
                   <div className="text-2xs font-mono text-dim">held under challenge</div>
                 )}
-                <div className="text-2xs uppercase tracking-wide text-dim">
-                  {AGENT_ROLE_LABEL[agent]}
-                </div>
+                <div className="text-xs text-dim">{AGENT_ROLE_LABEL[agent]}</div>
               </div>
             </Panel>
           </button>

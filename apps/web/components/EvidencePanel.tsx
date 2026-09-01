@@ -27,7 +27,7 @@ export default function EvidencePanel({
         <Column
           label="Independent"
           hint="Can justify disagreeing with the market"
-          color="#2ee6a8"
+          filled
           rows={independent}
           dead={dead}
           activeId={activeId}
@@ -36,7 +36,7 @@ export default function EvidencePanel({
         <Column
           label="Circular"
           hint="The contract's own price — describes the market, cannot argue with it"
-          color="#ff9d3d"
+          filled={false}
           rows={circular}
           dead={dead}
           activeId={activeId}
@@ -54,7 +54,7 @@ export default function EvidencePanel({
 function Column({
   label,
   hint,
-  color,
+  filled,
   rows,
   dead,
   activeId,
@@ -62,7 +62,11 @@ function Column({
 }: {
   label: string;
   hint: string;
-  color: string;
+  /** Independent evidence gets a solid dot and full-weight label — it's
+   *  the evidence that can actually justify a view. Circular evidence (the
+   *  market's own price) gets a hollow dot and dimmer label: real, but it
+   *  can't argue with itself. Weight, not hue. */
+  filled: boolean;
   rows: ReturnType<typeof allSignals>;
   dead: Set<EventId> | null;
   activeId: EventId | null;
@@ -72,17 +76,16 @@ function Column({
     <div>
       <div className="mb-2 flex items-baseline gap-2">
         <span
-          className="h-1.5 w-1.5 rounded-full"
-          style={{ background: color, boxShadow: `0 0 6px ${color}` }}
+          className={`h-1.5 w-1.5 rounded-full ${filled ? "bg-bright" : "border border-hair2"}`}
         />
-        <span className="text-2xs font-mono uppercase tracking-widest" style={{ color }}>
+        <span className={`text-2xs font-mono uppercase tracking-widest ${filled ? "text-bright" : "text-dim"}`}>
           {label} ({rows.length})
         </span>
       </div>
-      <p className="mb-2 text-2xs text-dim">{hint}</p>
+      <p className="mb-2 text-xs text-dim">{hint}</p>
       <div className="flex flex-col divide-y divide-hair rounded-sm border border-hair">
         {rows.length === 0 && (
-          <div className="px-2.5 py-2 text-2xs text-dim">— none captured yet —</div>
+          <div className="px-3 py-2.5 text-xs text-dim">None captured yet.</div>
         )}
         {rows.map(({ event, signal }) => {
           const isDead = dead?.has(event.id) ?? false;
@@ -91,10 +94,9 @@ function Column({
             <button
               key={event.id}
               onClick={() => onToggle(event.id, signal.label)}
-              className={`flex items-center justify-between gap-3 px-2.5 py-1.5 text-left transition-opacity hover:bg-panel2 ${
+              className={`flex items-center justify-between gap-3 px-3 py-2 text-left transition-opacity hover:bg-panel2 ${
                 isDead ? "opacity-35" : ""
-              }`}
-              style={isActive ? { boxShadow: "inset 2px 0 0 #ff3b4e" } : undefined}
+              } ${isActive ? "shadow-[inset_2px_0_0_#f5f5f5]" : ""}`}
             >
               <div className="min-w-0">
                 <div className={`truncate text-xs text-bright ${isDead ? "line-through" : ""}`}>
@@ -104,7 +106,7 @@ function Column({
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {!!signal.staleness && signal.staleness > 30 && (
-                  <Chip color="#ffb020">{signal.staleness}s old</Chip>
+                  <Chip weight="outlined">{signal.staleness}s old</Chip>
                 )}
                 <span className={`tabular font-mono text-sm text-mid ${isDead ? "line-through" : ""}`}>
                   {signal.value}

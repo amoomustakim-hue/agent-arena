@@ -2,7 +2,7 @@
 
 import type { EventId, RecordedEvent } from "@arena/core/blackbox.js";
 import { findEvent, findAllEvents, pct, pp } from "@/lib/derive";
-import { AGENT_COLOR, Panel, Pct } from "./ui";
+import { Panel, Pct } from "./ui";
 
 export default function VerdictTicket({
   visible,
@@ -35,19 +35,19 @@ export default function VerdictTicket({
       <div className="flex flex-col gap-4">
         {counterfactual && (
           <div
-            className={`rounded-sm border px-3 py-2 text-2xs ${
+            className={`rounded-md px-4 py-3 text-xs leading-relaxed ${
               verdictDead || !counterfactual.verdictSurvives
-                ? "border-fatal/40 bg-fatal/10 text-fatal"
-                : "border-indep/40 bg-indep/10 text-indep"
+                ? "bg-bright text-void"
+                : "border border-hair2 text-mid"
             }`}
           >
-            <strong className="font-mono uppercase tracking-wide">
+            <strong className="font-mono text-2xs uppercase tracking-wide">
               Counterfactual — removed &ldquo;{counterfactual.label}&rdquo;
             </strong>
             <br />
             {verdictDead || !counterfactual.verdictSurvives
-              ? "The verdict does NOT survive — it depended, directly or through the debate, on this evidence."
-              : "The verdict SURVIVES — nothing downstream of it required this evidence."}
+              ? "The verdict does not survive — it depended, directly or through the debate, on this evidence."
+              : "The verdict survives — nothing downstream of it required this evidence."}
           </div>
         )}
         <div className={verdictDead ? "opacity-30" : ""}>
@@ -70,7 +70,7 @@ export default function VerdictTicket({
             <span className="tabular font-mono text-sm text-bright">
               council <Pct v={edge.councilP} /> vs market <Pct v={edge.marketImplied} />
             </span>
-            <span className={`tabular font-mono text-sm ${edge.edge >= 0 ? "text-indep" : "text-circ"}`}>
+            <span className={`tabular font-mono text-sm ${edge.edge >= 0 ? "text-bright" : "text-dim"}`}>
               {pp(edge.edge)}
             </span>
           </Row>
@@ -94,7 +94,7 @@ export default function VerdictTicket({
           <div>
             <div className="mb-1 flex items-center gap-2">
               <span className="text-2xs font-mono uppercase tracking-widest text-dim">Risk</span>
-              <span className={`text-2xs font-mono uppercase ${risk.ok ? "text-indep" : "text-fatal"}`}>
+              <span className={`text-2xs font-mono uppercase ${risk.ok ? "text-dim" : "font-semibold text-bright"}`}>
                 {risk.ok ? "pass" : "blocked"}
               </span>
             </div>
@@ -111,9 +111,9 @@ export default function VerdictTicket({
         {(approved || rejected) && (
           <Row label="Approval gate">
             {approved ? (
-              <span className="font-mono text-2xs text-indep">approved by {approved.actor}</span>
+              <span className="font-mono text-2xs text-dim">approved by {approved.actor}</span>
             ) : rejected ? (
-              <span className="font-mono text-2xs text-fatal">rejected — {rejected.why}</span>
+              <span className="font-mono text-2xs font-semibold text-bright">rejected — {rejected.why}</span>
             ) : null}
           </Row>
         )}
@@ -135,7 +135,7 @@ export default function VerdictTicket({
           <Row label="Settlement">
             <span
               className={`font-mono text-sm font-semibold ${
-                settled.outcome === "VOID" ? "text-dim" : settled.outcome === "NO" ? "text-bear" : "text-bull"
+                settled.outcome === "VOID" ? "text-dim" : "text-bright"
               }`}
             >
               {settled.outcome}
@@ -154,9 +154,7 @@ export default function VerdictTicket({
             <div className="flex flex-col gap-1">
               {scores.map((s) => (
                 <div key={s.agent} className="flex items-center justify-between text-2xs">
-                  <span className="font-mono uppercase" style={{ color: AGENT_COLOR[s.agent] }}>
-                    {s.agent}
-                  </span>
+                  <span className="font-mono font-semibold uppercase text-bright">{s.agent}</span>
                   <span className="tabular font-mono text-dim">
                     brier {s.brier.toFixed(4)}
                     {s.revisions > 0 ? `  ·  ${s.revisionsHelpful}/${s.revisions} helpful` : ""}

@@ -38,8 +38,29 @@ const nextConfig = {
     // sub-path shows up.
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
+      // @wagmi/connectors exposes exactly one entry point (its own
+      // package.json "exports" has no per-connector deep path), so
+      // importing bare `injected()` from `wagmi/connectors` has no way to
+      // avoid pulling every OTHER connector's SDK into the webpack trace
+      // too. Each one has turned out to reference something real that this
+      // app never installs, because it's meant for a connector this app
+      // never uses:
+      //   baseAccount (Coinbase)  -> @coinbase/cdp-sdk, @base-org/account
+      //                              -> a chain of @x402/* payment packages
+      //   walletConnect           -> @walletconnect/ethereum-provider
+      //                              -> pino -> pino-pretty (pino's own
+      //                                 optional pretty-printer, the
+      //                                 standard "pino in a browser bundle"
+      //                                 fix, not specific to this project)
+      //   metaMask                -> @metamask/sdk -> React Native storage
+      //                              shims it falls back to outside RN
+      // The wagmi connector list is small and fixed, so this converges —
+      // it is not an open-ended chase.
       "@coinbase/cdp-sdk": false,
       "@base-org/account": false,
+      "pino-pretty": false,
+      "@react-native-async-storage/async-storage": false,
+      "@react-native-community/netinfo": false,
     };
     return config;
   },
