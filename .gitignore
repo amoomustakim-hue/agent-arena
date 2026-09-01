@@ -12,3 +12,6 @@ __pycache__/
 .pytest_cache/
 blackbox/*.jsonl
 !blackbox/.gitkeep
+
+# Playwright verification-run artifacts
+apps/web/screenshots/
